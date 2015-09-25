@@ -14,33 +14,38 @@ class ViewController: UIViewController, UITextFieldDelegate {
     @IBOutlet weak var inputTextField: UITextField!
     
     lazy var socket:SocketIOClient = {
-        let soc = SocketIOClient(socketURL: "mobiledevbootcampchat.mybluemix.net")
+        let soc = SocketIOClient(socketURL: "ddbe-chat.eu-gb.mybluemix.net")
         
         soc.on("connect") {data, ack in
-            soc.emit("chat message", "\(UIDevice.currentDevice().name) joined the conversation")
-            println("socket connected")
+            
+            self.sendMessage("joined the conversation")
+            print("socket connected", terminator: "")
         }
         
-        soc.on("chat message") {data, ack in
+        soc.on("package") {data, ack in
             
-            if let message = data?.firstObject as? String {
-                self.chatLabel.text = "\(self.chatLabel.text!)\n\(message)"
+            
+            if let package = data[0] as? [String:String] {
                 
-            }
-            
-            /* Example code from Socket.io
-            
-                if let cur = data?[0] as? Double {
-                    soc.emitWithAck("canUpdate", cur)(timeoutAfter: 0) {data in
-                        soc.emit("update", ["amount": cur + 2.50])
-                    }
-                    ack?("Got your currentAmount", "dude")
+                var txt = "anonynous: "
+                
+                if let user = package["user"] {
+                    txt = "\(user): "
                 }
-            */
+                
+                if let message = package["message"] {
+                    txt = txt + message
+                }
+                
+                self.chatLabel.text = "\(self.chatLabel.text!)\n\(txt)"
+            }
         }
-
         return soc
     }()
+    
+    //-----------------------------------------------------
+    //MARK: - UIViewController Lifecycle
+    //-----------------------------------------------------
     
     override func viewDidAppear(animated: Bool) {
         super.viewDidAppear(animated)
@@ -48,17 +53,22 @@ class ViewController: UIViewController, UITextFieldDelegate {
         socket.connect()
     }
     
-    @IBAction func sendMessage() {
-        socket.emit("chat message", inputTextField.text)
-        inputTextField.text = ""
-        
-    }
+    //-----------------------------------------------------
+    //MARK: - UITextFieldDelegate
+    //-----------------------------------------------------
     
     func textFieldShouldReturn(textField: UITextField) -> Bool {
-        sendMessage()
+        sendMessage(textField.text!)
+        inputTextField.text = ""
         return false
     }
     
-  
+    private func sendMessage(text:String) {
+        let data = [
+            "text": text,
+            "name":"\(UIDevice.currentDevice().name)"
+        ]
+        socket.emit("message", data)
+    }
 }
 
